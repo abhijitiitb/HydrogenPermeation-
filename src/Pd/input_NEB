@@ -1,0 +1,67 @@
+# ---------- Initialize Simulation ------------------------------------------------- 
+clear 
+dimension                 3
+units		          metal                
+atom_style                atomic                  
+boundary                  p p p
+atom_modify               map array sort 0 0.0
+neighbor                2.8 bin
+neigh_modify            every 10 delay 0 check yes
+
+variable u uloop 20
+
+# ---------- data  ---------------------------------------------------------------- 
+read_data            neb_initial.lammps
+
+# ---------- Define Interatomic Potential ---------------------------------------- 
+pair_style      eam/alloy
+pair_coeff      * * NiAlH_jea.eam.alloy Ni Al H
+
+#fix       1 all nve
+
+
+#delete_atoms   overlap 0.1 all all
+
+#----------------printing the dump file of initial structure---------------------
+group 		print_species type 1 3
+write_dump     print_species custom initial.lammpstrj id type x y z
+# initial minimization to relax surface
+
+minimize	1.0e-6 1.0e-4 1000 10000
+reset_timestep	0
+
+#-----------apply fixes to non neb atoms---------------------------------------------
+group           nonneb type 1
+#fix             1 nonneb setforce 0.0 0.0 0.0
+
+#------------apply fixes to neb atoms-----------------------------------------------------------
+####group           nebatoms id 2678
+###set             group nebatoms type 3
+#-------------------------above tells particular id for hoping----------------------------------
+group           nebatoms type 3
+#group		nonneb subtract all nebatoms
+#fix		1 lower setforce 0.0 0.0 0.0
+
+# spring constant value is considered 0.3 to 0.15
+
+fix             3 nebatoms neb 0.284 parallel ideal ###########################################
+#fix            3 nebatoms neb 1.0
+
+# Output thermodynamic data------------------------------------------------------
+thermo          1
+thermo_style	custom atoms step dt time temp pe ke etotal vol press
+
+# Generate position coordinates for the production run--------------------------------
+dump            1 all custom 1 dumpXXX_neb_$u.lammpstrj id type x y z 
+dump_modify     1 sort id
+
+#inter-atomic distnace should be 1 to 2 bohrs for creating nos of images
+
+#  timestep in fs---------------------------------------------------------------------
+timestep 	0.005
+
+# Run neb for required no of steps------------------------------------------------------
+min_style	quickmin
+#neb		0.0 0.1 1000 1000 100 final NiH1_final_24696.lammps
+#neb		0.0 0.1 1000 1000 100 final NIH2_final.lammps
+neb		0.0 0.01 1000 1000 100 final F1.lammps ###########################################
